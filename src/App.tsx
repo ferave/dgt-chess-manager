@@ -24,9 +24,16 @@ const placement = (fen: string) => fen.trim().split(/\s+/)[0];
 const initialPlacement = placement(initialFen);
 type BoardMove = { from: string; to: string };
 function legalPathToPlacement(startFen: string, targetPlacement: string, maxDepth = 4): BoardMove[] | undefined {
+  const expand = (board: string) => board.split('/').flatMap(rank => [...rank].flatMap(symbol => /\d/.test(symbol) ? Array(Number(symbol)).fill('.') : [symbol]));
+  const startSquares = expand(startFen.split(' ')[0]);
+  const targetSquares = expand(targetPlacement);
+  const changedSquares = startSquares.reduce((count, value, index) => count + (value !== targetSquares[index] ? 1 : 0), 0);
+  // Una pieza levantada suele cambiar solo una casilla; no es una secuencia
+  // completa y no merece iniciar una búsqueda costosa.
+  if (changedSquares < 2 || changedSquares > maxDepth * 2) return undefined;
   type Node = { fen: string; path: BoardMove[] };
   let frontier: Node[] = [{ fen: startFen, path: [] }];
-  for (let depth = 0; depth < maxDepth; depth += 1) {
+  for (let depth = 0; depth < Math.min(maxDepth, 3); depth += 1) {
     const next: Node[] = [];
     for (const node of frontier) {
       for (const legal of new Chess(node.fen).moves({ verbose: true })) {
@@ -37,7 +44,7 @@ function legalPathToPlacement(startFen: string, targetPlacement: string, maxDept
         next.push({ fen: probe.fen(), path });
       }
     }
-    frontier = next;
+    frontier = next.slice(0, 2500);
   }
   return undefined;
 }
