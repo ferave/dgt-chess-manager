@@ -71,15 +71,22 @@ export function App() {
     // If the physical board returns to a previous confirmed position, treat it
     // as a correction/takeback and keep an audit record instead of adding an
     // impossible move to the notation.
-    if (!pendingMove && game.physical.status === 'pending' && game.moves.length > 0) {
-      const previous = game.moves.find(move => move.ply < game.moves.length && placement(move.fen) === physicalPlacement);
-      if (previous) {
-        const targetPly = previous.ply;
-        setGame(current => ({ ...current, confirmedFen: targetPly === 0 ? initialFen : current.moves[targetPly - 1].fen, moves: current.moves.slice(0, targetPly), viewedPly: targetPly, physical: { ...current.physical, status: 'synced' }, corrections: [...(current.corrections ?? []), { timestamp: new Date().toISOString(), fromPly: current.moves.length, toPly: targetPly, removedMoves: current.moves.slice(targetPly) }] }));
-        setSaveNotice(`Corrección registrada: se volvió a la jugada ${targetPly}`);
-        return;
-      }
-    }
+     if (!pendingMove && game.physical.status === 'pending' && game.moves.length > 0) {
+       const previous = game.moves.find(move => move.ply < game.moves.length && placement(move.fen) === physicalPlacement);
+       if (previous) {
+         const targetPly = previous.ply;
+         // No registrar una rectificación durante el movimiento físico: el DGT
+         // puede emitir varias posiciones intermedias mientras se recoloca una pieza.
+         const timer = window.setTimeout(() => {
+           setGame(current => {
+             if (placement(current.physical.fen) !== physicalPlacement || current.physical.status !== 'pending') return current;
+             return { ...current, confirmedFen: targetPly === 0 ? initialFen : current.moves[targetPly - 1].fen, moves: current.moves.slice(0, targetPly), viewedPly: targetPly, physical: { ...current.physical, status: 'synced' }, corrections: [...(current.corrections ?? []), { timestamp: new Date().toISOString(), fromPly: current.moves.length, toPly: targetPly, removedMoves: current.moves.slice(targetPly) }] };
+           });
+           setSaveNotice(`Corrección registrada: se volvió a la jugada ${targetPly}`);
+         }, 700);
+         return () => window.clearTimeout(timer);
+       }
+     }
     if (!pendingMove) return;
     const timer = window.setTimeout(() => {
       setGame(current => {
@@ -92,7 +99,7 @@ export function App() {
         });
         return legal ? applyConfirmedMove(current, legal.from, legal.to) : current;
       });
-    }, 220);
+     }, 700);
     return () => window.clearTimeout(timer);
   }, [game.physical.fen, game.confirmedFen, game.moves.length, viewingHistory, pendingMove?.from, pendingMove?.to]);
   function move(from: string, to: string) { if (viewingHistory) return; setGame(s => applyConfirmedMove(s, from, to)); }
