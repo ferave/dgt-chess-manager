@@ -18,7 +18,7 @@ export class HttpDgtAdapter implements DgtAdapter {
         const state = await response.json() as { fen: string; connected: boolean; clock?: DgtClock };
         this.onEvent?.(state);
       } catch { this.onEvent?.({ fen: '', connected: false }); }
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 40));
     }
   }
 }
