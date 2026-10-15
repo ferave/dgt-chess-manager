@@ -115,7 +115,7 @@ export function App() {
          for (const move of path) next = applyConfirmedMove(next, move.from, move.to);
          return next;
        });
-      }, 450);
+      }, 300);
      return () => window.clearTimeout(timer);
    }, [game.physical.fen, game.confirmedFen, game.moves.length, viewingHistory, pendingMove?.from, pendingMove?.to, physicalPathKey]);
   function move(from: string, to: string) { if (viewingHistory) return; setGame(s => applyConfirmedMove(s, from, to)); }
