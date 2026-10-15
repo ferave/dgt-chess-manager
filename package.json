@@ -1,0 +1,74 @@
+{
+  "name": "dgt-chess-manager",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "start": "node scripts/start.mjs",
+    "desktop:dev": "npm run build && electron .",
+    "desktop:dist": "npm run build && electron-builder --win nsis",
+    "desktop:dir": "npm run build && electron-builder --dir"
+  },
+  "dependencies": {
+    "@lichess-org/chessground": "10.2.0",
+    "chess.js": "1.4.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "electron": "^44.7.2",
+    "electron-builder": "^26.0.12",
+    "typescript": "7.0.2",
+    "vite": "8.3.1"
+  },
+  "build": {
+    "appId": "com.dgtchessmanager.desktop",
+    "productName": "DGT Chess Manager",
+    "files": [
+      "dist/**/*",
+      "desktop/**/*",
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "release/scripts",
+        "to": "scripts",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "release/python",
+        "to": "python",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false,
+      "artifactName": "DGT-Chess-Manager-${version}-Windows.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
