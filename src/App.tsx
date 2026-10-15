@@ -23,7 +23,7 @@ const initialId = savedDocument && 'game' in savedDocument ? savedDocument.id : 
 const placement = (fen: string) => fen.trim().split(/\s+/)[0];
 const initialPlacement = placement(initialFen);
 type BoardMove = { from: string; to: string };
-function legalPathToPlacement(startFen: string, targetPlacement: string, maxDepth = 2): BoardMove[] | undefined {
+function legalPathToPlacement(startFen: string, targetPlacement: string, maxDepth = 1): BoardMove[] | undefined {
   const expand = (board: string) => board.split('/').flatMap(rank => [...rank].flatMap(symbol => /\d/.test(symbol) ? Array(Number(symbol)).fill('.') : [symbol]));
   const startSquares = expand(startFen.split(' ')[0]);
   const targetSquares = expand(targetPlacement);
