@@ -22,6 +22,25 @@ const initialMeta: GameMeta = savedDocument && 'game' in savedDocument && savedD
 const initialId = savedDocument && 'game' in savedDocument ? savedDocument.id : crypto.randomUUID();
 const placement = (fen: string) => fen.trim().split(/\s+/)[0];
 const initialPlacement = placement(initialFen);
+type BoardMove = { from: string; to: string };
+function legalPathToPlacement(startFen: string, targetPlacement: string, maxDepth = 4): BoardMove[] | undefined {
+  type Node = { fen: string; path: BoardMove[] };
+  let frontier: Node[] = [{ fen: startFen, path: [] }];
+  for (let depth = 0; depth < maxDepth; depth += 1) {
+    const next: Node[] = [];
+    for (const node of frontier) {
+      for (const legal of new Chess(node.fen).moves({ verbose: true })) {
+        const probe = new Chess(node.fen);
+        probe.move({ from: legal.from, to: legal.to, promotion: 'q' });
+        const path = [...node.path, { from: legal.from, to: legal.to }];
+        if (placement(probe.fen()) === targetPlacement) return path;
+        next.push({ fen: probe.fen(), path });
+      }
+    }
+    frontier = next;
+  }
+  return undefined;
+}
 function resultFromCenterKings(fen: string): GameMeta['result'] | undefined {
   const rows = fen.split(' ')[0].split('/'); const kings: Record<string, string> = {};
   rows.forEach((row, rankIndex) => { let file = 0; for (const symbol of row) { if (/\d/.test(symbol)) file += Number(symbol); else { if (symbol === 'K' || symbol === 'k') kings[symbol] = `${'abcdefgh'[file]}${8 - rankIndex}`; file += 1; } } });
@@ -36,7 +55,7 @@ const statusCopy: Record<SyncStatus, [string, string]> = { synced: ['Sincronizad
 
 export function App() {
   const [game, setGame] = useState(initial); const [players, setPlayers] = useState<Players>(initialPlayers); const [meta, setMeta] = useState<GameMeta>(initialMeta); const [positionFen, setPositionFen] = useState(game.confirmedFen); const [clock, setClock] = useState<DgtClock | undefined>(); const [devices, setDevices] = useState<DgtDevice[]>([]); const [activePort, setActivePort] = useState(''); const [bridgeError, setBridgeError] = useState(''); const [browserMode, setBrowserMode] = useState(false); const [saveNotice, setSaveNotice] = useState('Guardado automático activo'); const [gameId, setGameId] = useState(initialId); const [orientation, setOrientation] = useState<Orientation>('white'); const [connected, setConnected] = useState(false); const [theme, setTheme] = useState('brown'); const [pieceSize, setPieceSize] = useState('normal'); const [tab, setTab] = useState<'games' | 'boards' | 'diagnostics' | 'library'>('games'); const [portPickerOpen, setPortPickerOpen] = useState(false); const [manualPort, setManualPort] = useState(''); const [savedGames, setSavedGames] = useState<SavedGame[]>(() => JSON.parse(localStorage.getItem(libraryStorage) || '[]'));
-  const dgt = useMemo(() => new HttpDgtAdapter(), []); const webDgt = useMemo(() => new WebSerialDgtAdapter(), []); const viewedFen = fenAt(game, game.viewedPly); const viewingHistory = game.viewedPly !== game.moves.length; const last = game.moves[game.viewedPly - 1]; const chess = new Chess(viewedFen); const check = chess.inCheck() ? (chess.turn() === 'w' ? 'white' : 'black') : undefined; const dests: Dests = new Map(); if (!viewingHistory) for (const legal of chess.moves({ verbose: true })) { const existing = dests.get(legal.from) ?? []; existing.push(legal.to); dests.set(legal.from, existing); } const physicalPending = !viewingHistory && game.physical.status !== 'synced'; const displayFen = physicalPending ? game.physical.fen : viewedFen; let pendingMove: { from: string; to: string } | undefined; if (physicalPending) for (const legal of new Chess(viewedFen).moves({ verbose: true })) { const probe = new Chess(viewedFen); probe.move({ from: legal.from, to: legal.to, promotion: 'q' }); if (probe.fen().split(' ')[0] === game.physical.fen.split(' ')[0]) { pendingMove = legal; break; } }
+  const dgt = useMemo(() => new HttpDgtAdapter(), []); const webDgt = useMemo(() => new WebSerialDgtAdapter(), []); const viewedFen = fenAt(game, game.viewedPly); const viewingHistory = game.viewedPly !== game.moves.length; const last = game.moves[game.viewedPly - 1]; const chess = new Chess(viewedFen); const check = chess.inCheck() ? (chess.turn() === 'w' ? 'white' : 'black') : undefined; const dests: Dests = new Map(); if (!viewingHistory) for (const legal of chess.moves({ verbose: true })) { const existing = dests.get(legal.from) ?? []; existing.push(legal.to); dests.set(legal.from, existing); } const physicalPending = !viewingHistory && game.physical.status !== 'synced'; const displayFen = physicalPending ? game.physical.fen : viewedFen; let pendingMove: { from: string; to: string } | undefined; if (physicalPending) for (const legal of new Chess(viewedFen).moves({ verbose: true })) { const probe = new Chess(viewedFen); probe.move({ from: legal.from, to: legal.to, promotion: 'q' }); if (placement(probe.fen()) === placement(game.physical.fen)) { pendingMove = legal; break; } } const physicalPath = physicalPending && !pendingMove ? legalPathToPlacement(viewedFen, placement(game.physical.fen)) : undefined; const physicalPathKey = physicalPath?.map(move => `${move.from}${move.to}`).join(',');
   useEffect(() => { const document: SavedGame = { id: gameId, savedAt: savedDocument && 'game' in savedDocument ? savedDocument.savedAt : new Date().toISOString(), updatedAt: new Date().toISOString(), players, meta, game }; localStorage.setItem(storage, JSON.stringify(document)); const library = JSON.parse(localStorage.getItem(libraryStorage) || '[]') as SavedGame[]; const index = library.findIndex(item => item.id === gameId); if (index >= 0) library[index] = document; else if (game.moves.length > 0) library.unshift(document); localStorage.setItem(libraryStorage, JSON.stringify(library)); setSavedGames(library); setSaveNotice(`Guardado automático · ${game.moves.length} jugadas · ${new Date().toLocaleTimeString()}`); }, [game, players, meta, gameId]);
   useEffect(() => { if (browserMode) { dgt.disconnect(); return; } dgt.connect(e => { setConnected(e.connected); if (e.clock) setClock(e.clock); if (e.connected && e.fen) setGame(s => s.physical.fen === e.fen ? s : setPhysical(s, e.fen)); }); return () => dgt.disconnect(); }, [dgt, browserMode]);
   async function connectFromBrowser() { try { setBrowserMode(true); await webDgt.connect(e => { setConnected(e.connected); if (e.connected && e.fen) setGame(s => s.physical.fen === e.fen ? s : setPhysical(s, e.fen)); }); setSaveNotice('DGT conectado desde el navegador'); } catch (error) { setBrowserMode(false); setSaveNotice(error instanceof Error ? error.message : 'No se pudo conectar el DGT'); openPortPicker(); } }
@@ -87,21 +106,18 @@ export function App() {
          return () => window.clearTimeout(timer);
        }
      }
-    if (!pendingMove) return;
-    const timer = window.setTimeout(() => {
-      setGame(current => {
-        if (current.viewedPly !== current.moves.length || current.physical.fen !== game.physical.fen) return current;
-        const currentBoard = new Chess(current.confirmedFen);
-        const legal = currentBoard.moves({ verbose: true }).find(move => {
-          const probe = new Chess(current.confirmedFen);
-          probe.move({ from: move.from, to: move.to, promotion: 'q' });
-          return placement(probe.fen()) === placement(current.physical.fen);
-        });
-        return legal ? applyConfirmedMove(current, legal.from, legal.to) : current;
-      });
-     }, 700);
-    return () => window.clearTimeout(timer);
-  }, [game.physical.fen, game.confirmedFen, game.moves.length, viewingHistory, pendingMove?.from, pendingMove?.to]);
+     if (!pendingMove && !physicalPath?.length) return;
+     const path = pendingMove ? [pendingMove] : physicalPath!;
+     const timer = window.setTimeout(() => {
+       setGame(current => {
+         if (current.viewedPly !== current.moves.length || current.physical.fen !== game.physical.fen) return current;
+         let next = current;
+         for (const move of path) next = applyConfirmedMove(next, move.from, move.to);
+         return next;
+       });
+      }, 450);
+     return () => window.clearTimeout(timer);
+   }, [game.physical.fen, game.confirmedFen, game.moves.length, viewingHistory, pendingMove?.from, pendingMove?.to, physicalPathKey]);
   function move(from: string, to: string) { if (viewingHistory) return; setGame(s => applyConfirmedMove(s, from, to)); }
   function saveGame() { setSaveNotice('Partida guardada en la biblioteca'); const document: SavedGame = { id: gameId, savedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), players, meta, game }; const library = [document, ...savedGames.filter(item => item.id !== gameId)]; localStorage.setItem(libraryStorage, JSON.stringify(library)); setSavedGames(library); }
   async function downloadPgn() { const headers = [`[Event "${meta.event || '?'}"]`, `[Site "${meta.site || '?'}"]`, `[Date "${meta.date || '????.??.??'}"]`, `[Time "${meta.time || '??:??'}"]`, `[Round "${meta.round || '?'}"]`, `[White "${players.white || '?'}"]`, `[Black "${players.black || '?'}"]`, `[Result "${meta.result || '*'}"]`, '']; const content = [...headers, toTimedPgn(game), ''].join('\n'); const safeDate = `${meta.date || new Date().toISOString().slice(0, 10).replace(/-/g, '.')}_${(meta.time || '00:00').replace(':', '-')}`; const filename = `partida_${safeDate}.pgn`; const picker = (window as Window & { showSaveFilePicker?: (options: unknown) => Promise<{ createWritable: () => Promise<{ write: (data: string) => Promise<void>; close: () => Promise<void> }> }> }).showSaveFilePicker; if (picker) { try { const handle = await picker({ suggestedName: filename, types: [{ description: 'Partida PGN', accept: { 'application/x-chess-pgn': ['.pgn'] } }] }); const writable = await handle.createWritable(); await writable.write(content); await writable.close(); setSaveNotice('PGN guardado en la ubicación seleccionada'); return; } catch (error) { if ((error as DOMException).name === 'AbortError') return; } } const blob = new Blob([content], { type: 'application/x-chess-pgn' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url); setSaveNotice(`PGN descargado: ${filename}`); }
