@@ -72,3 +72,13 @@ La interfaz consulta `http://127.0.0.1:8787/api/dgt/state` mediante el proxy de 
 ## Aplicación Windows
 
 El instalador debe compilarse en Windows o mediante el workflow `.github/workflows/windows.yml`. La versión generada desde WSL no debe usarse como instalador final: puede crear un ejecutable incompleto y no incluye correctamente el puente DGT.
+
+## Autor
+
+**Ronald Fernando Avellaneda Arévalo**  
+Ingeniero Electrónico · Magíster en Transformación Digital  
+Actualmente en Red Hat · Maestro Nacional de Ajedrez
+
+Este proyecto combina ingeniería electrónica, software y ajedrez para conectar tableros DGT con herramientas digitales de gestión y análisis.
+
+[Perfil de LinkedIn](https://www.linkedin.com/in/ronald-fernando-avellaneda-arevalo-79b17464/)
