@@ -134,9 +134,13 @@ class DgtReader:
                             square, piece = message[1]
                             if square < 64:
                                 board[square] = piece
+                                with self.lock:
+                                    self.fen = board_fen(board)
                                 last_change = now
                         elif message and message[0] == 0x86 and len(message[1]) == 64:
                             board[:] = message[1]
+                            with self.lock:
+                                self.fen = board_fen(board)
                             last_change = now
                         if last_change and now - last_change >= 0.12:
                             with self.lock:
