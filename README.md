@@ -73,6 +73,21 @@ La interfaz consulta `http://127.0.0.1:8787/api/dgt/state` mediante el proxy de 
 
 El instalador debe compilarse en Windows o mediante el workflow `.github/workflows/windows.yml`. La versión generada desde WSL no debe usarse como instalador final: puede crear un ejecutable incompleto y no incluye correctamente el puente DGT.
 
+## Aplicación Android con USB-OTG
+
+La APK Android reutiliza esta misma interfaz y lógica de partida mediante Capacitor. Al abrirla, detecta directamente un DGT e-Board conectado por USB-OTG (VID/PID `045b:8111`), solicita permiso de Android y lee las posiciones sin PC, red ni puente Python.
+
+```bash
+npm install
+npm run android:sync
+cd android
+./gradlew :app:assembleDebug
+```
+
+El APK resultante queda en `android/app/build/outputs/apk/debug/`. Para compilar se requiere JDK 17 o posterior y Android SDK. Conecta el DGT antes de abrir la aplicación y acepta el permiso USB cuando Android lo solicite.
+
+También puede generarse sin instalar Android Studio: sube estos cambios a GitHub, abre **Actions → Android APK → Run workflow** y descarga el artefacto `DGT-Chess-Manager-Android-debug` al terminar.
+
 ## Autor
 
 **Ronald Fernando Avellaneda Arévalo**  
