@@ -22,32 +22,6 @@ const initialMeta: GameMeta = savedDocument && 'game' in savedDocument && savedD
 const initialId = savedDocument && 'game' in savedDocument ? savedDocument.id : crypto.randomUUID();
 const placement = (fen: string) => fen.trim().split(/\s+/)[0];
 const initialPlacement = placement(initialFen);
-type BoardMove = { from: string; to: string };
-function legalPathToPlacement(startFen: string, targetPlacement: string, maxDepth = 1): BoardMove[] | undefined {
-  const expand = (board: string) => board.split('/').flatMap(rank => [...rank].flatMap(symbol => /\d/.test(symbol) ? Array(Number(symbol)).fill('.') : [symbol]));
-  const startSquares = expand(startFen.split(' ')[0]);
-  const targetSquares = expand(targetPlacement);
-  const changedSquares = startSquares.reduce((count, value, index) => count + (value !== targetSquares[index] ? 1 : 0), 0);
-  // Una pieza levantada suele cambiar solo una casilla; no es una secuencia
-  // completa y no merece iniciar una búsqueda costosa.
-  if (changedSquares < 2 || changedSquares > maxDepth * 2) return undefined;
-  type Node = { fen: string; path: BoardMove[] };
-  let frontier: Node[] = [{ fen: startFen, path: [] }];
-  for (let depth = 0; depth < maxDepth; depth += 1) {
-    const next: Node[] = [];
-    for (const node of frontier) {
-      for (const legal of new Chess(node.fen).moves({ verbose: true })) {
-        const probe = new Chess(node.fen);
-        probe.move({ from: legal.from, to: legal.to, promotion: 'q' });
-        const path = [...node.path, { from: legal.from, to: legal.to }];
-        if (placement(probe.fen()) === targetPlacement) return path;
-        next.push({ fen: probe.fen(), path });
-      }
-    }
-    frontier = next.slice(0, 600);
-  }
-  return undefined;
-}
 function resultFromCenterKings(fen: string): GameMeta['result'] | undefined {
   const rows = fen.split(' ')[0].split('/'); const kings: Record<string, string> = {};
   rows.forEach((row, rankIndex) => { let file = 0; for (const symbol of row) { if (/\d/.test(symbol)) file += Number(symbol); else { if (symbol === 'K' || symbol === 'k') kings[symbol] = `${'abcdefgh'[file]}${8 - rankIndex}`; file += 1; } } });
@@ -113,15 +87,11 @@ export function App() {
          return () => window.clearTimeout(timer);
        }
      }
-     if (!physicalPending) return;
+     if (!pendingMove) return;
      const timer = window.setTimeout(() => {
        setGame(current => {
          if (current.viewedPly !== current.moves.length || current.physical.fen !== game.physical.fen) return current;
-         const path = pendingMove ? [pendingMove] : legalPathToPlacement(current.confirmedFen, placement(current.physical.fen));
-         if (!path?.length) return current;
-         let next = current;
-         for (const move of path) next = applyConfirmedMove(next, move.from, move.to);
-         return next;
+         return applyConfirmedMove(current, pendingMove!.from, pendingMove!.to);
        });
       }, confirmationDelay);
      return () => window.clearTimeout(timer);
