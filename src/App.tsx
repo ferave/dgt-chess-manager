@@ -101,7 +101,7 @@ export function App() {
          }
          return pendingMove ? applyConfirmedMove(current, pendingMove.from, pendingMove.to) : current;
        });
-      }, confirmationDelay);
+      }, pendingMove ? 0 : confirmationDelay);
      return () => window.clearTimeout(timer);
    }, [game.physical.fen, game.confirmedFen, game.moves.length, viewingHistory, pendingMove?.from, pendingMove?.to, correctionMove?.from, correctionMove?.to, confirmationDelay]);
   function move(from: string, to: string) { if (viewingHistory) return; setGame(s => applyConfirmedMove(s, from, to)); }
